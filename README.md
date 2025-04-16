@@ -11,3 +11,5 @@ Create rooms and play with your friend in Realtime!
 | Event Name |                        Function                         | Scope  |
 | ---------- | :-----------------------------------------------------: | :----: |
 | JOIN_ROOM  | Join a room by specifying the room id and the player id | Client |
+
+Still working on the docs :)
