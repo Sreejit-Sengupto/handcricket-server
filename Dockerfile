@@ -1,9 +1,9 @@
 FROM node:22-alpine
 
 
-WORKDIR /app/
+WORKDIR /src/
 
-COPY package.json /app/
+COPY package.json /src/
 
 RUN npm install
 
@@ -13,4 +13,4 @@ RUN npx tsc --build
 
 EXPOSE 3000
 
-CMD [ "node", "dist/index.ts" ]
+CMD [ "node", "dist/index.js" ]
