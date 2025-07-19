@@ -76,6 +76,15 @@ This server supports several real-time events:
 | UPDATE_GAME   | Update game state and scoreboard                  | `{ type: 'UPDATE_GAME', message: { innings: number, playersScore: [{ player: string, runs: number, role: string }] } }` | Real-time game state updates |
 | GAME_OVER     | Notify clients that the game has ended            | `{ type: 'GAME_OVER', message: { result: string } }` | Final game result with winner information |
 
+## How to test on [Hoppscotch](https://hoppscotch.io/realtime/websocket)
+1. Open Hoppscotch on two different tabs or browser window.
+2. Switch to **Realtime**
+3. Change message format from JSON to TEXT
+4. For joining room - ```{ "type": "JOIN_ROOM", "roomId": "room_1", "playerId": "player_1" }```
+5. For 2nd player change the playerId to join the same room.
+6. For playing choices - ```{ "type": "PLAYER_CHOICE", "roomId": "room_1", "playerId": "player_1", "choice": "5" }```
+7. Similarly, change the playerId for player 2.
+
 ## How to Play
 
 1. **Join a Room**: Connect to the WebSocket server and send a `JOIN_ROOM` event with your player ID and room ID.
