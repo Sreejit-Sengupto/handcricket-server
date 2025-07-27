@@ -1,4 +1,5 @@
 import express from 'express'
+import cors from 'cors'
 import { WebSocket, WebSocketServer } from 'ws'
 import { MessageType } from './types/MessageType'
 import { joinRoom } from './helpers/joinRoom'
@@ -6,6 +7,9 @@ import { rooms } from './store/store'
 import handleChoice from './helpers/handleChoice'
 
 const app = express()
+app.use(cors({
+    origin: '*'
+}))
 const PORT = process.env.PORT
 
 const expressServer = app.listen(PORT, () => {

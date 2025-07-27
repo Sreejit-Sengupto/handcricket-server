@@ -18,10 +18,11 @@ const handleChoice = (roomId: string, playerId: string, choice: number) => {
         broadCastScoreBoard(roomId, game)
         // console.log("Good here");
 
-    } else if (result === "WAIT") {
+    } else if (typeof result !== "string") {
         const message = {
             type: 'UPDATE_GAME',
-            message: 'Waiting for the other player to choose...'
+            // message: 'Waiting for the other player to choose...'
+            message: result.message
         }
         rooms[roomId].forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
@@ -30,7 +31,7 @@ const handleChoice = (roomId: string, playerId: string, choice: number) => {
         })
     } else {
         // game is over send the results
-        broadcastGameOver(roomId, result)
+        broadcastGameOver(roomId, result, game)
     }
 }
 
@@ -42,7 +43,8 @@ const broadCastScoreBoard = (roomId: string, game: Game) => {
             playersScore: game.players.map(p => ({
                 player: p.player,
                 runs: p.score,
-                role: p.state
+                role: p.state,
+                choice: p.choice
             }))
         }
     }
@@ -52,13 +54,21 @@ const broadCastScoreBoard = (roomId: string, game: Game) => {
             client.send(JSON.stringify(scoreBoard))
         }
     })
+
+    game.resetChoices()
 }
 
-const broadcastGameOver = (roomId: string, result: string) => {
+const broadcastGameOver = (roomId: string, result: string, game: Game) => {
     const payload = {
         type: 'GAME_OVER',
         message: {
-            result
+            result,
+            playersScore: game.players.map(p => ({
+                player: p.player,
+                runs: p.score,
+                role: p.state,
+                choice: p.choice
+            }))
         }
     }
     rooms[roomId].forEach(client => {

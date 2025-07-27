@@ -41,7 +41,11 @@ export class Game {
         const player2 = this.players[1]
 
         if (player1.choice === null || player2.choice === null) {
-            return "WAIT"
+            // return "WAIT"
+            return {
+                type: 'WAIT',
+                message: player1.choice === null ? player1.player : player2.player
+            }
         }
 
 
@@ -67,7 +71,17 @@ export class Game {
                 if (player1.state === 'batting') {
                     player1.score += player1.choice
                 } else {
-                    player2.score = player2.choice
+                    player2.score += player2.choice
+                }
+                if (player1.state === 'batting') {
+                    if (player1.score > player2.score) {
+                        return this.determineWinner()
+                    }
+                }
+                if (player2.state === 'batting') {
+                    if (player2.score > player1.score) {
+                        return this.determineWinner()
+                    }
                 }
             } else {
                 // determine winner
@@ -76,7 +90,7 @@ export class Game {
         }
 
         // reset choices
-        this.resetChoices()
+        // this.resetChoices()
         return null;
     }
 

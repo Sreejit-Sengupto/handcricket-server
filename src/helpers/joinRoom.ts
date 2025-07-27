@@ -9,6 +9,9 @@ const playerIdsArr: string[] = [];
 let pointer = 0;
 
 export const joinRoom = (ws: WebSocket, roomId: string, playerId: string) => {
+    if (playerIdsArr.includes(playerId)) {
+        sendMessage('This player is already in the room', roomId)
+    }
 
     if (!rooms[roomId]) {
         rooms[roomId] = []
@@ -17,7 +20,7 @@ export const joinRoom = (ws: WebSocket, roomId: string, playerId: string) => {
     if (rooms[roomId].length < 2) {
         rooms[roomId].push(ws)
         playerIdsArr[pointer++] = playerId
-        sendMessage('A player joined', roomId);
+        sendMessage(`${playerId} has entered the stadium`, roomId);
     } else {
         ws.send(JSON.stringify({ type: 'MESSAGE', message: 'The room is full' }))
     }
