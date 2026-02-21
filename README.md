@@ -1,104 +1,114 @@
-# Hand Cricket Server
+# Hand Cricket Lobby Server (Phase 1)
 
-This project implements the classic school-time game Hand Cricket using Node.js, Express, and WebSockets. It allows you to create rooms and play the game in real-time with a friend.
+This server now implements a Redis-backed, secure multiplayer lobby for hand-cricket.
 
-## Features
+## What is implemented
 
-- **Real-time gameplay**: Utilizing WebSockets for smooth, real-time interactions.
-- **Multiplayer support**: Create and join rooms dynamically.
-- **Docker support**: Easily deployable using Docker.
+- Private room creation using 6-char base32 room codes.
+- Room capacity enforcement: maximum 12 occupied slots.
+- Two teams (`A`, `B`) with max 6 players each.
+- Player-choice join + free self team switching in lobby.
+- Host-only room start with strict equal-team rule (`1v1` to `6v6`).
+- Reconnect grace handling (60s reserved slot hold).
+- Redis atomic Lua scripts for race-safe `create/join/switch/start/disconnect/resume/expire` flows.
+- Signed session tokens (HMAC), runtime payload validation, rate limits, and structured audit logging.
+- Pub/Sub room fanout for multi-instance broadcast consistency.
 
-## Prerequisites
+## Tech stack
 
-- **Node.js**: Ensure Node.js is installed on your system.
-- **Docker (Optional)**: For containerized deployment.
+- Node.js + TypeScript
+- Express + ws
+- Redis + ioredis
 
-## Installation
+## Environment variables
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/your-repo/handcricket.git
-   ```
-2. **Navigate to the directory**:
-   ```bash
-   cd handcricket
-   ```
-3. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-4. **Compile TypeScript**:
-   ```bash
-   npx tsc --build
-   ```
+```env
+PORT=8000
+# Preferred for managed Redis (Upstash, etc.). Supports rediss:// and ediss://.
+REDIS_URL=
 
-## Running the Application
+# Fallback if REDIS_URL is empty
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=
 
-### Locally
+TOKEN_SECRET=dev-only-change-this-secret
+SESSION_TTL_SEC=86400
+ROOM_IDLE_MS=1800000
+RECONNECT_GRACE_SEC=60
+REAPER_INTERVAL_MS=5000
+MAX_WS_PAYLOAD_BYTES=2048
+WS_ALLOWED_ORIGINS=*
+RATE_CONNECT_PER_MIN=20
+RATE_CREATE_PER_MIN=3
+RATE_JOIN_PER_MIN=15
+RATE_SWITCH_PER_MIN=30
+RATE_START_PER_MIN=15
+RATE_AUTH_PER_MIN=30
+RATE_INVALID_CODE_PER_MIN=20
+```
 
-1. **Start the server**:
-   ```bash
-   npm run dev
-   ```
+## Run locally
 
-2. **Access the application**: By default, it runs on `http://localhost:3000`.
+1. Ensure Redis is reachable (local or `REDIS_URL`).
+2. Install dependencies:
+```bash
+npm install
+```
+3. Compile and run:
+```bash
+npm run dev
+```
 
-### Using Docker
+## WebSocket protocol
 
-1. **Build the Docker image**:
-   ```bash
-   docker build -t handcricket .
-   ```
+### Client -> Server
 
-2. **Run the Docker container**:
-   ```bash
-   docker run -p 3000:3000 handcricket
-   ```
+1. `ROOM_CREATE`
+```json
+{ "type": "ROOM_CREATE", "payload": { "displayName": "Alice", "preferredTeam": "A" } }
+```
 
-## Event List
+2. `ROOM_JOIN`
+```json
+{ "type": "ROOM_JOIN", "payload": { "roomCode": "ABC234", "displayName": "Bob", "preferredTeam": "B" } }
+```
 
-This server supports several real-time events:
+3. `AUTH_RESUME`
+```json
+{ "type": "AUTH_RESUME", "payload": { "token": "<session-token>" } }
+```
 
-### Client to Server Events
+4. `TEAM_SWITCH`
+```json
+{ "type": "TEAM_SWITCH", "payload": { "targetTeam": "A" } }
+```
 
-| Event Name    | Function                                           | Required Parameters           | Description |
-|---------------|----------------------------------------------------|-----------------------------|-------------|
-| JOIN_ROOM     | Join a room by specifying the room and player ID   | `roomId`, `playerId`        | Player joins a game room. When 2 players join, game starts automatically |
-| PLAYER_CHOICE | Handle player's choice during the game             | `roomId`, `playerId`, `choice` | Submit player's choice (1-6) for the current round |
-| MESSAGE       | Send a chat message to all players in the room     | `roomId`, `message`         | Send text messages to other players in the same room |
+5. `ROOM_START`
+```json
+{ "type": "ROOM_START", "payload": {} }
+```
 
-### Server to Client Events
+### Server -> Client
 
-| Event Name    | Function                                           | Data Structure              | Description |
-|---------------|----------------------------------------------------|-----------------------------|-------------|
-| MESSAGE       | Broadcast message to all clients in a room        | `{ type: 'MESSAGE', message: string }` | General messages including player join notifications |
-| START_GAME    | Notify clients that the game has started          | `{ type: 'START_GAME', message: { batsman: string, bowler: string } }` | Sent when 2 players join and game begins |
-| UPDATE_GAME   | Update game state and scoreboard                  | `{ type: 'UPDATE_GAME', message: { innings: number, playersScore: [{ player: string, runs: number, role: string }] } }` | Real-time game state updates |
-| GAME_OVER     | Notify clients that the game has ended            | `{ type: 'GAME_OVER', message: { result: string } }` | Final game result with winner information |
+- `ROOM_CREATED`
+- `ROOM_JOINED`
+- `AUTH_OK`
+- `ROOM_STATE`
+- `ROOM_LOCKED`
+- `ROOM_ERROR`
+- `AUTH_ERROR`
 
-## How to test on [Hoppscotch](https://hoppscotch.io/realtime/websocket)
-1. Open Hoppscotch on two different tabs or browser window.
-2. Switch to **Realtime**
-3. Change message format from JSON to TEXT
-4. For joining room - ```{ "type": "JOIN_ROOM", "roomId": "room_1", "playerId": "player_1" }```
-5. For 2nd player change the playerId to join the same room.
-6. For playing choices - ```{ "type": "PLAYER_CHOICE", "roomId": "room_1", "playerId": "player_1", "choice": "5" }```
-7. Similarly, change the playerId for player 2.
+`ROOM_STATE` is authoritative and should be used by the frontend as the source of truth.
 
-## How to Play
+## Start rule
 
-1. **Join a Room**: Connect to the WebSocket server and send a `JOIN_ROOM` event with your player ID and room ID.
-2. **Wait for Game Start**: Once 2 players join, the server will send a `START_GAME` event with role assignments.
-3. **Make Choices**: Players submit their choices (1-6) using the `PLAYER_CHOICE` event.
-4. **Game Logic**: 
-   - If choices are different: batting player scores runs equal to their choice
-   - If choices are the same: innings change or game ends
-5. **Game End**: Server sends `GAME_OVER` event with the final result.
+`ROOM_START` succeeds only when:
 
-## Contribution
+- caller is host,
+- room is in `LOBBY`,
+- no reserved players pending reconnect,
+- `teamA == teamB`,
+- `teamA >= 1`.
 
-Feel free to submit pull requests or create issues regarding any bugs or feature requests.
-
-## License
-
-This project is licensed under ISC. See the [LICENSE](LICENSE) file for details.
+So valid starts are: `1v1`, `2v2`, ..., `6v6`.
